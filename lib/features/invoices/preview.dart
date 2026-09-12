@@ -7,6 +7,7 @@ import '../../app/store.dart';
 import '../../shared/ui.dart';
 import 'invoice.dart';
 import 'export.dart';
+import 'invoice_document.dart';
 
 class InvoicePreview extends ConsumerStatefulWidget {
   final Invoice invoice;
@@ -129,167 +130,48 @@ class _InvoicePreviewState extends ConsumerState<InvoicePreview> {
         leading: IconButton(
           tooltip: 'Back to bank details',
           onPressed: busy ? null : () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.close),
         ),
       ),
       body: PageBody(
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
         children: [
           Row(
             children: [
               const Expanded(
                 child: Text(
                   'Preview',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
               ),
               TextButton(
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  foregroundColor: blue,
+                  textStyle: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0,
+                  ),
+                ),
                 onPressed: busy ? null : () => Navigator.pop(context, false),
                 child: const Text(
                   'Edit Invoice',
-                  style: TextStyle(decoration: TextDecoration.underline),
+                  style: TextStyle(
+                    decoration: TextDecoration.underline,
+                    color: blue,
+                    decorationColor: blue,
+                  ),
                 ),
               ),
             ],
           ),
           const Steps(current: 2),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xffe4e4e4)),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    if (ref.watch(
-                          appStoreProvider.select((state) => state.logo),
-                        ) !=
-                        null)
-                      Image.memory(
-                        ref.read(appStoreProvider).logo!,
-                        width: 40,
-                        height: 40,
-                      )
-                    else
-                      const CircleAvatar(backgroundColor: Color(0xffdddddd)),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Invoice No. #${invoice.number}',
-                        style: const TextStyle(
-                          color: navy,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: info('Bill To:', invoice.client)),
-                    const SizedBox(width: 16),
-                    Expanded(child: info('From:', invoice.sender)),
-                  ],
-                ),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: info('Invoice Title', invoice.title)),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: info('Issuance date', dateLabel(invoice.date)),
-                    ),
-                  ],
-                ),
-                const Divider(),
-                const SizedBox(height: 12),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: DataTable(
-                    horizontalMargin: 8,
-                    columnSpacing: 18,
-                    headingTextStyle: const TextStyle(
-                      color: navy,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    columns: [
-                      const DataColumn(label: Text('Description')),
-                      const DataColumn(label: Text('Qty'), numeric: true),
-                      DataColumn(
-                        label: Text('Unit Price\n(${invoice.currency})'),
-                        numeric: true,
-                      ),
-                      DataColumn(
-                        label: Text('Amount\n(${invoice.currency})'),
-                        numeric: true,
-                      ),
-                    ],
-                    rows: [
-                      for (var i = 0; i < invoice.items.length; i++)
-                        DataRow(
-                          color: WidgetStatePropertyAll(
-                            i.isEven ? const Color(0xffedf6ff) : Colors.white,
-                          ),
-                          cells: [
-                            DataCell(
-                              SizedBox(
-                                width: 110,
-                                child: Text(invoice.items[i].description),
-                              ),
-                            ),
-                            DataCell(Text('${invoice.items[i].quantity}')),
-                            DataCell(
-                              Text(money(invoice.items[i].unitPrice, '')),
-                            ),
-                            DataCell(Text(money(invoice.items[i].total, ''))),
-                          ],
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                for (final row in [
-                  ('Subtotal', invoice.subtotal),
-                  ('Tax', invoice.tax),
-                  ('Shipping', invoice.shipping),
-                  ('Total', invoice.total),
-                ])
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Row(
-                      children: [
-                        Text(row.$1),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            money(row.$2, invoice.currency),
-                            textAlign: TextAlign.right,
-                            style: TextStyle(
-                              color: navy,
-                              fontWeight: row.$1 == 'Total'
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                const Divider(),
-                const SizedBox(height: 16),
-                info('Terms Of Payment', invoice.terms),
-                info(
-                  'Payment Details',
-                  'Bank Number: ${invoice.bankNumber}\nBank Name: ${invoice.bankName}\nAccount Name: ${invoice.accountName}',
-                ),
-              ],
-            ),
+          InvoiceDocument(
+            invoice: invoice,
+            logo: ref.watch(appStoreProvider.select((state) => state.logo)),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 40),
           ActionButton('Download Pdf', busy: busy, onPressed: () => export()),
           const SizedBox(height: 12),
           ActionButton(
@@ -297,34 +179,9 @@ class _InvoicePreviewState extends ConsumerState<InvoicePreview> {
             outlined: true,
             onPressed: busy ? null : () => export(share: true),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Choose your email app from the share menu and enter the recipient.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: Colors.grey),
-          ),
-          const SizedBox(height: 16),
-          ActionButton(
-            'Save Invoice',
-            outlined: true,
-            onPressed: busy ? null : save,
-          ),
+         
         ],
       ),
-    ),
-  );
-  Widget info(String label, String value) => Padding(
-    padding: const EdgeInsets.only(bottom: 24),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(color: Colors.grey)),
-        const SizedBox(height: 6),
-        Text(
-          value,
-          style: const TextStyle(color: navy, fontWeight: FontWeight.w600),
-        ),
-      ],
     ),
   );
 }

@@ -5,9 +5,11 @@ import 'invoice.dart';
 
 Future<Uint8List> invoicePdf(Invoice invoice, Uint8List? logo) async {
   final regular = pw.Font.ttf(
-    await rootBundle.load('assets/fonts/Lato-Regular.ttf'),
+    await rootBundle.load('assets/fonts/Pretendard-Regular.ttf'),
   );
-  final bold = pw.Font.ttf(await rootBundle.load('assets/fonts/Lato-Bold.ttf'));
+  final bold = pw.Font.ttf(
+    await rootBundle.load('assets/fonts/Pretendard-Bold.ttf'),
+  );
   final document = pw.Document(
     theme: pw.ThemeData.withFont(base: regular, bold: bold),
   );

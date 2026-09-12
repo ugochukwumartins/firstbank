@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lancebox/app/app.dart';
 import 'package:lancebox/app/store.dart';
+import 'package:lancebox/features/invoices/dashboard.dart';
+import 'package:lancebox/shared/ui.dart';
 
 void main() {
   testWidgets('sign-up validates input and skip opens the empty dashboard', (
@@ -28,7 +30,11 @@ void main() {
         child: const LanceBoxApp(),
       ),
     );
-    await tester.ensureVisible(find.text('Sign Up'));
+    await tester.scrollUntilVisible(
+      find.text('Sign Up'),
+      150,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('Sign Up'));
     await tester.pumpAndSettle();
     expect(find.text('Enter a valid email address'), findsOneWidget);
@@ -61,7 +67,18 @@ void main() {
     expect(find.byIcon(Icons.check), findsNWidgets(3));
     await tester.ensureVisible(find.text('Sign Up'));
     await tester.tap(find.text('Sign Up'));
+    await tester.pump();
+    expect(find.text('Signing Up'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text('Signing Up'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byType(BrandLoading), findsOneWidget);
+    expect(find.text('Signing Up'), findsNothing);
+    await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
+    expect(find.byType(BrandLoading), findsNothing);
+    expect(find.text('Signing Up'), findsNothing);
     await tester.scrollUntilVisible(
       find.text('Skip for now'),
       200,
@@ -69,7 +86,7 @@ void main() {
     );
     await tester.tap(find.text('Skip for now'));
     await tester.pumpAndSettle();
-    expect(find.text('Welcome!'), findsOneWidget);
+    expect(find.byType(Dashboard), findsOneWidget);
     expect(container.read(appStoreProvider).onboarded, isTrue);
     expect(tester.takeException(), isNull);
   });

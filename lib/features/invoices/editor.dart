@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../../shared/validation.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/store.dart';
 import '../../shared/ui.dart';
@@ -125,29 +128,31 @@ class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
     terms: terms.text.trim(),
   );
   bool get validDetails =>
-      [
-        number,
-        client,
-        sender,
-        title,
-      ].every((c) => requiredText(c.text) == null) &&
+      invoiceNumberError(number.text) == null &&
+      nameError(client.text) == null &&
+      nameError(sender.text) == null &&
+      titleError(title.text) == null &&
+      items.isNotEmpty &&
       items.every(
         (i) =>
-            requiredText(i.description.text) == null &&
+            descriptionError(i.description.text) == null &&
             positiveNumber(i.quantity.text) == null &&
             nonNegativeNumber(i.price.text) == null,
       ) &&
-      nonNegativeNumber(shipping.text) == null &&
+      shippingError(shipping.text) == null &&
       vatError(vat.text) == null;
-  String? vatError(String? value) =>
-      nonNegativeNumber(value) ??
-      ((double.tryParse(value ?? '') ?? 0) > 100 ? 'VAT must be 0–100%' : null);
-  bool get validBank => [
-    bankNumber,
-    bankName,
-    accountName,
-    terms,
-  ].every((c) => requiredText(c.text) == null);
+  String? shippingError(String? value) =>
+      value == null || value.trim().isEmpty ? null : nonNegativeNumber(value);
+
+  String? vatError(String? value) => value == null || value.trim().isEmpty
+      ? null
+      : nonNegativeNumber(value) ??
+            ((double.tryParse(value) ?? 0) > 100 ? 'VAT must be 0–100%' : null);
+  bool get validBank =>
+      bankNumberError(bankNumber.text) == null &&
+      bankNameError(bankName.text) == null &&
+      nameError(accountName.text) == null &&
+      termsError(terms.text) == null;
   Future<void> close() async {
     if (step == 1) {
       setState(() => step = 0);
@@ -211,10 +216,11 @@ class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
         leading: IconButton(
           tooltip: step == 0 ? 'Close invoice' : 'Back to invoice details',
           onPressed: close,
-          icon: Icon(step == 0 ? Icons.close : Icons.arrow_back),
+          icon: Icon(Icons.close),
         ),
       ),
       body: PageBody(
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
         children: [
           Text(
             step == 0 ? 'New Invoice' : 'Bank Details',
@@ -243,20 +249,15 @@ class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
     return [
       SizedBox(
         width: 164,
-        child: Field('Invoice Number', number, validator: requiredText),
+        child: Field('Invoice Number', number, validator: invoiceNumberError),
       ),
       Field(
         'Client’s Name',
         client,
         hint: 'Enter Client’s Name',
-        validator: requiredText,
+        validator: nameError,
       ),
-      Field(
-        'Your Name',
-        sender,
-        hint: 'Enter Your Name',
-        validator: requiredText,
-      ),
+      Field('Your Name', sender, hint: 'Enter Your Name', validator: nameError),
       Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -315,7 +316,7 @@ class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
         'Invoice Title',
         title,
         hint: 'Enter Invoice Title',
-        validator: requiredText,
+        validator: titleError,
       ),
       for (var index = 0; index < items.length; index++)
         Container(
@@ -330,7 +331,7 @@ class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
                 'Item Description',
                 items[index].description,
                 hint: 'Enter a description',
-                validator: requiredText,
+                validator: descriptionError,
               ),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -361,14 +362,23 @@ class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
                 ],
               ),
               const Text('Amount'),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      child: Text(money(invoice.items[index].total, currency)),
+                    child: InputDecorator(
+                      decoration: const InputDecoration(),
+                      child: Text(
+                        money(invoice.items[index].total, '').trim(),
+                        style: TextStyle(
+                          color: invoice.items[index].total == 0
+                              ? const Color(0xffb2b2b2)
+                              : const Color(0xff333333),
+                        ),
+                      ),
                     ),
                   ),
+                  const SizedBox(width: 24),
                   IconButton(
                     tooltip: 'Remove item ${index + 1}',
                     onPressed: items.length == 1
@@ -381,7 +391,12 @@ class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
                             });
                             removed.dispose();
                           },
-                    icon: const Icon(Icons.delete_outline),
+                    icon: SvgPicture.asset(
+                      'assets/icons/delete-item.svg',
+                      width: 36,
+                      height: 36,
+                      excludeFromSemantics: true,
+                    ),
                   ),
                 ],
               ),
@@ -398,76 +413,118 @@ class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
         },
         child: const Text(
           'Add New Item',
-          style: TextStyle(decoration: TextDecoration.underline),
+          style: TextStyle(
+            decoration: TextDecoration.underline,
+            color: Colors.blue,
+            decorationColor: Colors.blue,
+          ),
         ),
       ),
       const SizedBox(height: 30),
-      _total('Subtotal', money(invoice.subtotal, currency)),
+      _total('SubTotal', invoice.subtotal),
+      const SizedBox(height: 8),
+      _summaryInput('VAT', vat, width: 64, validator: vatError, percent: true),
+      const SizedBox(height: 8),
+      _summaryInput('Shipping', shipping, width: 104, validator: shippingError),
       const SizedBox(height: 12),
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Field(
-              'VAT (%)',
-              vat,
-              validator: vatError,
-              keyboard: const TextInputType.numberWithOptions(decimal: true),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Field(
-              'Shipping',
-              shipping,
-              validator: nonNegativeNumber,
-              keyboard: const TextInputType.numberWithOptions(decimal: true),
-            ),
-          ),
-        ],
-      ),
-      _total('Total', money(invoice.total, currency)),
+      _total('Total', invoice.total),
     ];
   }
 
-  Widget _total(String label, String value) => Row(
+  Widget _summaryInput(
+    String label,
+    TextEditingController controller, {
+    required double width,
+    required String? Function(String?) validator,
+    bool percent = false,
+  }) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Expanded(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Text(label),
+        ),
+      ),
+      const SizedBox(width: 12),
+      SizedBox(
+        width: width,
+        child: TextFormField(
+          key: ValueKey('summary-$label'),
+          controller: controller,
+          validator: validator,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          textAlign: TextAlign.right,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          decoration: InputDecoration(
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 8,
+            ),
+            errorMaxLines: 5,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(3)),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(3),
+              borderSide: const BorderSide(color: Color(0xffe4e4e4), width: 2),
+            ),
+          ),
+        ),
+      ),
+      if (percent)
+        const Padding(
+          padding: EdgeInsets.only(left: 4, top: 10),
+          child: Text('%'),
+        ),
+    ],
+  );
+
+  Widget _total(String label, int amount) => Row(
     children: [
       Text(label),
       const SizedBox(width: 8),
       Expanded(
         child: Text(
-          value,
+          money(amount, currency == 'NGN' ? 'N' : currency),
           textAlign: TextAlign.right,
-          style: const TextStyle(fontWeight: FontWeight.w600, color: navy),
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: amount == 0 ? const Color(0xffb2b2b2) : navy,
+          ),
         ),
       ),
     ],
   );
+
   List<Widget> bank() => [
     Field(
       'Bank Number',
       bankNumber,
       hint: 'Enter your Bank Number',
-      validator: requiredText,
+      validator: bankNumberError,
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+        LengthLimitingTextInputFormatter(10),
+      ],
       keyboard: TextInputType.number,
     ),
     Field(
       'Name of Bank',
       bankName,
       hint: 'Enter your Bank Name',
-      validator: requiredText,
+      validator: bankNameError,
     ),
     Field(
       'Name of Account',
       accountName,
       hint: 'Enter the Name on Account',
-      validator: requiredText,
+      validator: nameError,
     ),
     Field(
       'Terms of Payment',
       terms,
       hint: 'e.g. Payment will be made in installments',
-      validator: requiredText,
+      validator: termsError,
     ),
   ];
 }

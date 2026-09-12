@@ -83,7 +83,7 @@ class Dashboard extends ConsumerWidget {
       body: PageBody(
         children: [
           const Text(
-            'Welcome!',
+            'Welcome Subomi!',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
@@ -150,9 +150,23 @@ class Dashboard extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      'View All  ›',
-                      style: TextStyle(decoration: TextDecoration.underline),
+                    Row(
+                      children: [
+                        const Flexible(
+                          child: Text(
+                            'View All',
+                            style: TextStyle(
+                              color: Colors.black,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                        const Icon(
+                          Icons.chevron_right,
+                          size: 18,
+                          color: Colors.black,
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -177,8 +191,9 @@ class Dashboard extends ConsumerWidget {
             const _EmptyIllustration(),
             const SizedBox(height: 28),
             const Text(
-              'You don’t have any Invoice history yet. Create your first invoice to get started.',
+              'You don’t have any Invoice history yet. Click the \n button below to create your first Invoice.',
               textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: Color(0xff333333)),
             ),
           ] else ...[
             const SizedBox(height: 16),
@@ -224,7 +239,7 @@ class _Tile extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        constraints: const BoxConstraints(minHeight: 150),
+        constraints: const BoxConstraints(minHeight: 124),
         padding: const EdgeInsets.all(12),
         child: DefaultTextStyle.merge(
           style: TextStyle(
@@ -233,6 +248,7 @@ class _Tile extends StatelessWidget {
             height: 1.4,
           ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: children,
           ),

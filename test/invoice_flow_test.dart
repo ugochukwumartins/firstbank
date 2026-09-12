@@ -31,6 +31,19 @@ void main() {
       await tester.tap(find.text('Create New Invoice'));
       await tester.pumpAndSettle();
       Future<void> fill(String label, String value) async {
+        if (label == 'VAT (%)' || label == 'Shipping') {
+          final target = find.byKey(
+            ValueKey('summary-${label == 'VAT (%)' ? 'VAT' : label}'),
+          );
+          await tester.scrollUntilVisible(
+            target,
+            180,
+            scrollable: find.byType(Scrollable).first,
+          );
+          await tester.enterText(target, value);
+          await tester.pump();
+          return;
+        }
         final field = find.byWidgetPredicate(
           (w) => w is TextFormField && w.controller != null,
         );
@@ -55,11 +68,39 @@ void main() {
       await fill('Item Description', 'Design work');
       await fill('Quantity', '2');
       await fill('Price', '3000');
+      await fill('VAT (%)', '');
+      await fill('Shipping', '');
+      await tester.ensureVisible(find.text('Next'));
+      expect(
+        tester
+            .widget<FilledButton>(find.widgetWithText(FilledButton, 'Next'))
+            .onPressed,
+        isNotNull,
+      );
+      await fill('VAT (%)', '101');
+      await tester.scrollUntilVisible(
+        find.text('Next'),
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(
+        tester
+            .widget<FilledButton>(find.widgetWithText(FilledButton, 'Next'))
+            .onPressed,
+        isNull,
+      );
       await fill('VAT (%)', '7.5');
       await fill('Shipping', '500');
       await tester.ensureVisible(find.text('Next'));
       await tester.tap(find.text('Next'));
       await tester.pumpAndSettle();
+      await fill('Bank Number', '012345678901');
+      expect(find.text('0123456789'), findsOneWidget);
+      await fill('Name of Bank', 'Lance123');
+      expect(
+        find.text('Bank name cannot contain numbers or special symbols'),
+        findsOneWidget,
+      );
       await fill('Bank Number', '0123456789');
       await fill('Name of Bank', 'Lance Bank');
       await fill('Name of Account', 'Jane Doe');

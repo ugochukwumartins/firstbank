@@ -104,14 +104,20 @@ String dateLabel(DateTime date) =>
 String? requiredText(String? value) =>
     value == null || value.trim().isEmpty ? 'This field is required' : null;
 String? positiveNumber(String? value) {
-  final n = double.tryParse(value ?? '');
+  if (!RegExp(r'^\d+(?:\.\d{1,2})?$').hasMatch(value?.trim() ?? '')) {
+    return 'Enter a number with up to 2 decimal places';
+  }
+  final n = double.tryParse(value!.trim());
   return n == null || !n.isFinite || n <= 0 || n > 1000000000
       ? 'Enter a number greater than 0 (up to 1 billion)'
       : null;
 }
 
 String? nonNegativeNumber(String? value) {
-  final n = double.tryParse(value ?? '');
+  if (!RegExp(r'^\d+(?:\.\d{1,2})?$').hasMatch(value?.trim() ?? '')) {
+    return 'Enter a number with up to 2 decimal places';
+  }
+  final n = double.tryParse(value!.trim());
   return n == null || !n.isFinite || n < 0 || n > 1000000000
       ? 'Enter a number from 0 to 1 billion'
       : null;

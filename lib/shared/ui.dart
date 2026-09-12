@@ -1,7 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 const navy = Color(0xff103d66);
 const blue = Color(0xff50a7ff);
+
+class DashedRectangleBorder extends OutlinedBorder {
+  const DashedRectangleBorder({super.side});
+
+  @override
+  EdgeInsetsGeometry get dimensions => EdgeInsets.all(side.width);
+
+  @override
+  DashedRectangleBorder copyWith({BorderSide? side}) =>
+      DashedRectangleBorder(side: side ?? this.side);
+
+  @override
+  ShapeBorder scale(double t) => DashedRectangleBorder(side: side.scale(t));
+
+  @override
+  Path getOuterPath(Rect rect, {TextDirection? textDirection}) =>
+      Path()..addRect(rect);
+
+  @override
+  Path getInnerPath(Rect rect, {TextDirection? textDirection}) =>
+      Path()..addRect(rect.deflate(side.width));
+
+  @override
+  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {
+    if (side.style == BorderStyle.none || rect.isEmpty) return;
+    final path = Path()..addRect(rect.deflate(side.width / 2));
+    final paint = side.toPaint();
+    for (final metric in path.computeMetrics()) {
+      for (double offset = 0; offset < metric.length; offset += 16) {
+        final end = (offset + 10).clamp(0.0, metric.length).toDouble();
+        canvas.drawPath(metric.extractPath(offset, end), paint);
+      }
+    }
+  }
+}
 
 class Brand extends StatelessWidget {
   final bool wordmark;
@@ -33,6 +69,34 @@ class Brand extends StatelessWidget {
           ),
         ),
     ],
+  );
+}
+
+/// Full-screen transition matching the supplied loading-state design.
+class BrandLoading extends StatelessWidget {
+  const BrandLoading({super.key});
+
+  @override
+  Widget build(BuildContext context) => ColoredBox(
+    color: Colors.white,
+    child: Center(
+      child: Semantics(
+        label: 'Loading, please wait',
+        child: SizedBox(
+          width: 114,
+          height: 114,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              const Positioned.fill(
+                child: CircularProgressIndicator(color: blue, strokeWidth: 1.5),
+              ),
+              Transform.scale(scale: 1.55, child: const Brand()),
+            ],
+          ),
+        ),
+      ),
+    ),
   );
 }
 
@@ -103,6 +167,7 @@ class Field extends StatefulWidget {
   final String? hint;
   final String? Function(String?)? validator;
   final TextInputType? keyboard;
+  final List<TextInputFormatter>? inputFormatters;
   final bool obscure, readOnly, showCompletion;
   final List<TextEditingController> validationDependencies;
   final VoidCallback? onTap;
@@ -113,6 +178,7 @@ class Field extends StatefulWidget {
     this.hint,
     this.validator,
     this.keyboard,
+    this.inputFormatters,
     this.obscure = false,
     this.readOnly = false,
     this.onTap,
@@ -152,12 +218,14 @@ class _FieldState extends State<Field> {
             onTapOutside: (_) => _focusNode.unfocus(),
             validator: widget.validator,
             keyboardType: widget.keyboard,
+            inputFormatters: widget.inputFormatters,
             obscureText: widget.obscure,
             readOnly: widget.readOnly,
             onTap: widget.onTap,
             autovalidateMode: AutovalidateMode.onUserInteraction,
             decoration: InputDecoration(
               hintText: widget.hint,
+              errorMaxLines: 3,
               suffixIcon:
                   widget.showCompletion &&
                       !_focusNode.hasFocus &&
@@ -180,13 +248,18 @@ class _FieldState extends State<Field> {
 
 class PageBody extends StatelessWidget {
   final List<Widget> children;
-  const PageBody({super.key, required this.children});
+  final EdgeInsetsGeometry padding;
+  const PageBody({
+    super.key,
+    required this.children,
+    this.padding = const EdgeInsets.all(24),
+  });
   @override
   Widget build(BuildContext context) => SafeArea(
     child: Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 600),
-        child: ListView(padding: const EdgeInsets.all(24), children: children),
+        child: ListView(padding: padding, children: children),
       ),
     ),
   );
@@ -202,7 +275,7 @@ class Steps extends StatelessWidget {
       'Invoice\nDetails',
       'Bank\nDetails',
       'Preview\nInvoice',
-      'Download /\nSend',
+      'Download\ninvoice/Send\n to client',
     ],
   });
   @override
@@ -211,7 +284,7 @@ class Steps extends StatelessWidget {
     child: Row(
       children: [
         for (var i = 0; i < labels.length; i++) ...[
-          Expanded(
+          Flexible(
             child: Text(
               labels[i],
               style: TextStyle(
@@ -221,9 +294,13 @@ class Steps extends StatelessWidget {
               ),
             ),
           ),
+          SizedBox(width: 5),
           if (i < labels.length - 1)
-            const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
+            const Icon(Icons.chevron_right, size: 18, color: Colors.black),
+          if (i == labels.length - 1)
+            const Icon(Icons.chevron_right, size: 18, color: Colors.black),
         ],
+        SizedBox(width: 5),
         const Icon(Icons.check_circle, color: Color(0xff13c443), size: 20),
       ],
     ),

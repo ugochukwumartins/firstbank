@@ -7,7 +7,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/store.dart';
 import '../../shared/ui.dart';
-import '../invoices/invoice.dart';
+import '../../shared/validation.dart';
 
 class Onboarding extends ConsumerStatefulWidget {
   const Onboarding({super.key});
@@ -20,7 +20,7 @@ class _OnboardingState extends ConsumerState<Onboarding> {
   final email = TextEditingController(),
       password = TextEditingController(),
       confirmation = TextEditingController();
-  bool profile = false, busy = false;
+  bool profile = false, busy = false, loadingTransition = false;
   String type = '';
   Uint8List? logo;
   late final _termsLink = TapGestureRecognizer()
@@ -39,6 +39,24 @@ class _OnboardingState extends ConsumerState<Onboarding> {
     password.dispose();
     confirmation.dispose();
     super.dispose();
+  }
+
+  Future<void> signUp() async {
+    if (busy || !form.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
+    setState(() => busy = true);
+    await Future<void>.delayed(const Duration(seconds: 3));
+    if (!mounted) return;
+    setState(() => loadingTransition = true);
+    await Future<void>.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+    password.clear();
+    confirmation.clear();
+    setState(() {
+      loadingTransition = false;
+      busy = false;
+      profile = true;
+    });
   }
 
   Future<void> pickLogo() async {
@@ -100,10 +118,12 @@ class _OnboardingState extends ConsumerState<Onboarding> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    body: PageBody(
-      key: ValueKey(profile),
-      children: profile ? profileWidgets() : signupWidgets(),
-    ),
+    body: loadingTransition
+        ? const BrandLoading()
+        : PageBody(
+            key: ValueKey(profile),
+            children: profile ? profileWidgets() : signupWidgets(),
+          ),
   );
   List<Widget> signupWidgets() => [
     Align(
@@ -144,46 +164,37 @@ class _OnboardingState extends ConsumerState<Onboarding> {
             email,
             hint: 'Enter your email address',
             showCompletion: true,
+            readOnly: busy,
             keyboard: TextInputType.emailAddress,
-            validator: (v) =>
-                RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(v?.trim() ?? '')
-                ? null
-                : 'Enter a valid email address',
+            validator: emailError,
           ),
           Field(
             'Password',
             password,
             hint: 'Enter your password',
             showCompletion: true,
+            readOnly: busy,
             obscure: true,
-            validator: (v) =>
-                (v?.length ?? 0) >= 8 ? null : 'Use at least 8 characters',
+            validator: passwordError,
           ),
           Field(
             'Confirm Password',
             confirmation,
             hint: 'Confirm your password',
             showCompletion: true,
+            readOnly: busy,
             validationDependencies: [password],
             obscure: true,
-            validator: (v) =>
-                requiredText(v) ??
-                (v == password.text ? null : 'Passwords do not match'),
+            validator: (v) => confirmationError(v, password.text),
           ),
         ],
       ),
     ),
     const SizedBox(height: 14),
     ActionButton(
-      'Sign Up',
-      onPressed: () {
-        if (form.currentState!.validate()) {
-          FocusScope.of(context).unfocus();
-          password.clear();
-          confirmation.clear();
-          setState(() => profile = true);
-        }
-      },
+      busy ? 'Signing Up' : 'Sign Up',
+      busy: busy,
+      onPressed: signUp,
     ),
     const SizedBox(height: 12),
     const Text(
@@ -276,30 +287,49 @@ class _OnboardingState extends ConsumerState<Onboarding> {
     const SizedBox(height: 24),
     OutlinedButton(
       style: OutlinedButton.styleFrom(
-        shape: const RoundedRectangleBorder(),
+        shape: const DashedRectangleBorder(),
+        side: const BorderSide(color: blue, width: 2.0),
         padding: const EdgeInsets.all(24),
       ),
       onPressed: busy ? null : pickLogo,
       child: Column(
         children: [
           if (logo == null)
-            const Icon(
-              Icons.add_photo_alternate_outlined,
-              size: 32,
-              color: Colors.grey,
+            SvgPicture.asset(
+              'assets/icons/upload-logo.svg',
+              width: 28,
+              height: 28,
+              excludeFromSemantics: true,
             )
           else ...[
-            Image.memory(logo!, height: 48),
-            const Icon(Icons.check_circle, color: Colors.green),
+            //Image.memory(logo!, height: 48),
+            const Icon(Icons.check_circle, color: Colors.green, size: 48),
           ],
           const SizedBox(height: 8),
-          Text(logo == null ? 'Select a file' : 'Upload successful'),
+          Text(
+            logo == null ? 'Drag or select a file' : 'Upload successful',
+            style: TextStyle(
+              color: logo == null ? Colors.grey : Colors.black87,
+            ),
+          ),
         ],
       ),
     ),
     const SizedBox(height: 8),
-    const Text(
-      'Upload a logo\nPNG or JPG less than 20 MB',
+    const Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: 'Upload a logo',
+            style: TextStyle(
+              color: Colors.black87,
+              fontWeight: FontWeight.w400,
+              fontSize: 11,
+            ),
+          ),
+          TextSpan(text: '\nPNG or JPG less than 20mb'),
+        ],
+      ),
       textAlign: TextAlign.center,
       style: TextStyle(fontSize: 12, color: Colors.grey),
     ),
@@ -334,7 +364,15 @@ class _OnboardingState extends ConsumerState<Onboarding> {
     const SizedBox(height: 8),
     TextButton(
       onPressed: busy ? null : () => finish(skip: true),
-      child: const Text('Skip for now'),
+      style: TextButton.styleFrom(foregroundColor: blue),
+      child: const Text(
+        'Skip for now',
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          decoration: TextDecoration.underline,
+          decorationColor: blue,
+        ),
+      ),
     ),
   ];
 }
