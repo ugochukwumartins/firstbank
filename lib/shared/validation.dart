@@ -1,3 +1,5 @@
+import '../features/invoices/invoice.dart' show nonNegativeNumber;
+
 /// Shared rules used by inline errors and navigation-button readiness.
 String? textError(String? value, {int maxLength = 200}) {
   final text = value?.trim() ?? '';
@@ -53,3 +55,11 @@ String? passwordError(String? value) {
 String? confirmationError(String? value, String password) =>
     passwordError(value) ??
     (value == password ? null : 'Passwords do not match');
+
+String? shippingError(String? value) =>
+    value == null || value.trim().isEmpty ? null : nonNegativeNumber(value);
+
+String? vatError(String? value) => value == null || value.trim().isEmpty
+    ? null
+    : nonNegativeNumber(value) ??
+          ((double.tryParse(value) ?? 0) > 100 ? 'VAT must be 0–100%' : null);

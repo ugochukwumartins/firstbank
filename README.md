@@ -8,7 +8,7 @@ Flutter implementation of the supplied LanceBox onboarding and invoicing screens
 - Optional PNG/JPG logo selection below 20 MB, business/freelancer selection, and skip.
 - Dashboard with invoice count, empty state, saved history, and navigation drawer.
 - Invoice editor with dynamic line items, date/currency selection, VAT, shipping, bank details, and payment terms.
-- Preview, edit, actual PDF export, device sharing/email handoff, and local saving/reopening.
+- Preview, edit, actual PDF export, device sharing/email handoff, and a local saved-invoice store.
 - Inline errors, disabled invalid actions, progress indicators, and discard confirmation.
 
 ## Architecture / Project Structure
@@ -17,7 +17,9 @@ Flutter implementation of the supplied LanceBox onboarding and invoicing screens
 - `lib/app/`: theme, app entry, and shared store.
 - `lib/features/onboarding/`: sign-up and profile setup.
 - `lib/features/invoices/`: models, dashboard, editor, preview, and PDF generation.
-- `lib/shared/ui.dart`: buttons, fields, progress steps, brand mark, and page layout.
+- `lib/shared/ui.dart`: exports focused components from `shared/widgets/`.
+
+See [the code guide](docs/CODE_GUIDE.md) for a plain-language file map and explanation of Riverpod.
 
 ## State Management
 
@@ -29,17 +31,12 @@ Use Flutter with Dart 3.10.3 or newer compatible with the lockfile. Run:
 
 ```sh
 flutter pub get
-flutter run -d chrome
-# Or select an Android/iOS simulator or connected device:
+# Select an Android/iOS simulator or connected device:
 flutter devices
 flutter run -d <device-id>
 ```
 
-Android uses Java 17, AGP 8.12.1 and the supplied Gradle wrapper. iOS builds need Xcode and signing/device setup. macOS file-picker entitlements are included. To produce a web build:
-
-```sh
-flutter build web
-```
+Android uses Java 17, AGP 8.12.1 and the supplied Gradle wrapper. iOS builds need Xcode and signing/device setup. macOS file-picker entitlements are included. To produce an Android debug build, run `flutter build apk --debug`.
 
 Onboarding is a local demonstration, not authentication. Use a valid email-shaped value and any matching password of at least eight characters; no credentials are transmitted or persisted. Profile setup is optional. Invoices remain on this device after logging out. This is one local workspace, not separate user accounts.
 
@@ -51,9 +48,9 @@ flutter analyze
 flutter test
 ```
 
-Tests cover rounding, VAT/shipping totals, invalid numbers, JSON round trips, persistence and editing, corrupt-data protection, PDF output, sign-up validation, Riverpod profile/logout notifications and immutable snapshots, and the complete invoice creation/save/reopen journey at 320-pixel phone width.
+Tests cover rounding, VAT/shipping totals, invalid numbers, JSON round trips, persistence and editing, corrupt-data protection, PDF output, sign-up validation, Riverpod profile/logout notifications and immutable snapshots, invoice creation/preview/edit at 320-pixel phone width, and visual regression snapshots.
 
-Validation completed: all 14 automated tests pass, static analysis reports no issues, and the Android debug build succeeds. Android APK: `build/app/outputs/flutter-apk/app-debug.apk`. Device-level file-picker/share-sheet behavior remains unverified; iOS has not been built.
+Run the checks above after making changes. Android APK: `build/app/outputs/flutter-apk/app-debug.apk`. Device-level file-picker/share-sheet behavior remains unverified; iOS has not been built.
 
 ## Design Decisions
 
@@ -74,7 +71,7 @@ Validation completed: all 14 automated tests pass, static analysis reports no is
 - Currency options are NGN/USD/GBP/EUR; no exchange-rate conversion occurs. Dates default to today.
 - The sample preview totals are inconsistent. The app computes actual totals instead of reproducing those values.
 - Saved-history layout is a simple extension of the supplied empty dashboard.
-- Save is an explicit preview action because the screenshots do not establish when the save prompt opens.
+- The current preview exposes Download and Email only. Saved-invoice persistence remains implemented and tested; there is currently no visible Save action.
 - The missing sign-up predecessor is not invented. Social buttons explain that sign-in is unavailable; policy controls show demo information, not invented legal terms.
 
 ## Known Limitations
@@ -92,7 +89,7 @@ Validation completed: all 14 automated tests pass, static analysis reports no is
 1. Show invalid sign-up, then proceed through or skip profile setup.
 2. Create an invoice with two line items; change quantity, VAT and shipping to demonstrate totals.
 3. Enter bank details, preview, return to edit, and show preserved values.
-4. Download a PDF or open the share menu, then save and reopen from Dashboard.
+4. Download a PDF or open the share menu, and explain the device handoff.
 5. Explain the invoice model, local/shared state boundary, error handling and tests.
 
 ## What I Would Improve With More Time

@@ -1,13 +1,13 @@
 import 'dart:typed_data';
-import 'dart:ui' as ui;
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/store.dart';
 import '../../shared/ui.dart';
-import '../../shared/validation.dart';
+import 'logo_picker.dart';
+import 'profile_setup.dart';
+import 'signup_content.dart';
+
+enum OnboardingStage { signup, loading, profile }
 
 class Onboarding extends ConsumerStatefulWidget {
   const Onboarding({super.key});
@@ -16,25 +16,17 @@ class Onboarding extends ConsumerStatefulWidget {
 }
 
 class _OnboardingState extends ConsumerState<Onboarding> {
-  final form = GlobalKey<FormState>();
-  final email = TextEditingController(),
-      password = TextEditingController(),
-      confirmation = TextEditingController();
-  bool profile = false, busy = false, loadingTransition = false;
-  String type = '';
+  final formKey = GlobalKey<FormState>();
+  final email = TextEditingController();
+  final password = TextEditingController();
+  final confirmation = TextEditingController();
+  OnboardingStage stage = OnboardingStage.signup;
+  bool busy = false;
+  String accountType = '';
   Uint8List? logo;
-  late final _termsLink = TapGestureRecognizer()
-    ..onTap = () => notice(context, 'Terms and Conditions', '');
-  late final _policyLink = TapGestureRecognizer()
-    ..onTap = () => notice(
-      context,
-      'Policy',
-      'This demo stores profile and invoices on this device. Passwords are not saved. No remote account is created.',
-    );
+
   @override
   void dispose() {
-    _termsLink.dispose();
-    _policyLink.dispose();
     email.dispose();
     password.dispose();
     confirmation.dispose();
@@ -42,53 +34,32 @@ class _OnboardingState extends ConsumerState<Onboarding> {
   }
 
   Future<void> signUp() async {
-    if (busy || !form.currentState!.validate()) return;
+    if (busy || !formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
     setState(() => busy = true);
+    // These delays are intentional: button spinner, then the branded loader.
     await Future<void>.delayed(const Duration(seconds: 3));
     if (!mounted) return;
-    setState(() => loadingTransition = true);
+    setState(() => stage = OnboardingStage.loading);
     await Future<void>.delayed(const Duration(seconds: 2));
     if (!mounted) return;
     password.clear();
     confirmation.clear();
     setState(() {
-      loadingTransition = false;
       busy = false;
-      profile = true;
+      stage = OnboardingStage.profile;
     });
   }
 
-  Future<void> pickLogo() async {
+  Future<void> selectLogo() async {
     setState(() => busy = true);
     try {
-      final file = await FilePicker.pickFile(
-        type: FileType.custom,
-        allowedExtensions: ['png', 'jpg', 'jpeg'],
-      );
-      if (file == null) return;
-      if (await file.length() >= 20 * 1024 * 1024 ||
-          !['png', 'jpg', 'jpeg'].contains(file.extension?.toLowerCase())) {
-        if (mounted) {
-          showError(context, 'Choose a PNG or JPG smaller than 20 MB.');
-        }
-        return;
+      final selectedLogo = await pickProfileLogo();
+      if (selectedLogo != null && mounted) {
+        setState(() => logo = selectedLogo);
       }
-      final codec = await ui.instantiateImageCodec(
-        await file.readAsBytes(),
-        targetWidth: 512,
-      );
-      try {
-        final frame = await codec.getNextFrame();
-        final data = await frame.image.toByteData(
-          format: ui.ImageByteFormat.png,
-        );
-        frame.image.dispose();
-        if (data == null) throw StateError('Invalid image');
-        if (mounted) setState(() => logo = data.buffer.asUint8List());
-      } finally {
-        codec.dispose();
-      }
+    } on FormatException catch (error) {
+      if (mounted) showError(context, error.message);
     } catch (_) {
       if (mounted) {
         showError(
@@ -101,12 +72,12 @@ class _OnboardingState extends ConsumerState<Onboarding> {
     }
   }
 
-  Future<void> finish({bool skip = false}) async {
+  Future<void> completeProfile({bool skip = false}) async {
     setState(() => busy = true);
     try {
       await ref
           .read(appStoreProvider.notifier)
-          .completeProfile(skip ? '' : type, skip ? null : logo);
+          .completeProfile(skip ? '' : accountType, skip ? null : logo);
     } catch (_) {
       if (mounted) {
         showError(context, 'Could not save your profile. Please try again.');
@@ -117,262 +88,32 @@ class _OnboardingState extends ConsumerState<Onboarding> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    body: loadingTransition
-        ? const BrandLoading()
-        : PageBody(
-            key: ValueKey(profile),
-            children: profile ? profileWidgets() : signupWidgets(),
-          ),
-  );
-  List<Widget> signupWidgets() => [
-    Align(
-      alignment: Alignment.centerLeft,
-      child: Row(
-        children: [
-          IconButton(
-            tooltip: 'Back to sign up',
-            onPressed: busy ? null : () => setState(() => profile = false),
-            icon: const Icon(Icons.arrow_back),
-          ),
-          const Text(
-            'Back',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-          ),
-        ],
-      ),
-    ),
-    const SizedBox(height: 40),
-    const Center(child: Brand()),
-    const SizedBox(height: 28),
-    const Text(
-      'Looks like you’re new here!',
-      textAlign: TextAlign.center,
-      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-    ),
-    const SizedBox(height: 8),
-    const Text('Let’s create your account', textAlign: TextAlign.center),
+  Widget build(BuildContext context) => Scaffold(body: buildCurrentStage());
 
-    const SizedBox(height: 32),
-    Form(
-      key: form,
-      child: Column(
-        children: [
-          Field(
-            'Email Address',
-            email,
-            hint: 'Enter your email address',
-            showCompletion: true,
-            readOnly: busy,
-            keyboard: TextInputType.emailAddress,
-            validator: emailError,
-          ),
-          Field(
-            'Password',
-            password,
-            hint: 'Enter your password',
-            showCompletion: true,
-            readOnly: busy,
-            obscure: true,
-            validator: passwordError,
-          ),
-          Field(
-            'Confirm Password',
-            confirmation,
-            hint: 'Confirm your password',
-            showCompletion: true,
-            readOnly: busy,
-            validationDependencies: [password],
-            obscure: true,
-            validator: (v) => confirmationError(v, password.text),
-          ),
-        ],
-      ),
-    ),
-    const SizedBox(height: 14),
-    ActionButton(
-      busy ? 'Signing Up' : 'Sign Up',
-      busy: busy,
-      onPressed: signUp,
-    ),
-    const SizedBox(height: 12),
-    const Text(
-      'Or',
-      textAlign: TextAlign.center,
-      style: TextStyle(fontWeight: FontWeight.bold),
-    ),
-    Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        for (final provider in ['Google', 'Facebook'])
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Semantics(
-              button: true,
-              label: 'Sign in with $provider',
-              child: Tooltip(
-                message: 'Sign in with $provider',
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: () => notice(
-                    context,
-                    '$provider sign-in',
-                    'Social sign-in is not connected in this local demonstration.',
-                  ),
-                  child: SvgPicture.asset(
-                    'assets/icons/${provider.toLowerCase()}.svg',
-                    width: 48,
-                    height: 48,
-                    excludeFromSemantics: true,
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
-    ),
-    const SizedBox(height: 42),
-    Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Text.rich(
-        TextSpan(
-          children: [
-            const TextSpan(text: 'By signing up you agree to our '),
-            TextSpan(
-              text: 'Terms and\nConditions',
-              style: const TextStyle(
-                color: navy,
-                fontWeight: FontWeight.w600,
-                decoration: TextDecoration.underline,
-                decorationColor: navy,
-              ),
-              recognizer: _termsLink,
-            ),
-            const TextSpan(text: ' and '),
-            TextSpan(
-              text: 'Policy',
-              style: const TextStyle(
-                color: navy,
-                fontWeight: FontWeight.w600,
-                decoration: TextDecoration.underline,
-                decorationColor: navy,
-              ),
-              recognizer: _policyLink,
-            ),
-          ],
-        ),
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          fontSize: 14,
-          height: 1.7,
-          letterSpacing: 0,
-          wordSpacing: 0,
-          color: Color(0xff333333),
-        ),
-      ),
-    ),
-  ];
-  List<Widget> profileWidgets() => [
-    const Center(child: Brand()),
-    const SizedBox(height: 28),
-    const Text(
-      'Let’s Get to Know you Better',
-      textAlign: TextAlign.center,
-      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-    ),
-    const Steps(current: 0, labels: ['Set Up Profile', 'Personal Details']),
-    const SizedBox(height: 12),
-    const Text('Upload your logo/personal branding'),
-    const SizedBox(height: 24),
-    OutlinedButton(
-      style: OutlinedButton.styleFrom(
-        shape: const DashedRectangleBorder(),
-        side: const BorderSide(color: blue, width: 2.0),
-        padding: const EdgeInsets.all(24),
-      ),
-      onPressed: busy ? null : pickLogo,
-      child: Column(
-        children: [
-          if (logo == null)
-            SvgPicture.asset(
-              'assets/icons/upload-logo.svg',
-              width: 28,
-              height: 28,
-              excludeFromSemantics: true,
-            )
-          else ...[
-            //Image.memory(logo!, height: 48),
-            const Icon(Icons.check_circle, color: Colors.green, size: 48),
-          ],
-          const SizedBox(height: 8),
-          Text(
-            logo == null ? 'Drag or select a file' : 'Upload successful',
-            style: TextStyle(
-              color: logo == null ? Colors.grey : Colors.black87,
-            ),
-          ),
-        ],
-      ),
-    ),
-    const SizedBox(height: 8),
-    const Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(
-            text: 'Upload a logo',
-            style: TextStyle(
-              color: Colors.black87,
-              fontWeight: FontWeight.w400,
-              fontSize: 11,
-            ),
-          ),
-          TextSpan(text: '\nPNG or JPG less than 20mb'),
-        ],
-      ),
-      textAlign: TextAlign.center,
-      style: TextStyle(fontSize: 12, color: Colors.grey),
-    ),
-    const SizedBox(height: 32),
-    const Text('How will you like to use your Lancebox?'),
-    const SizedBox(height: 24),
-    for (final option in ['As a Business Owner', 'As an Individual/Freelancer'])
-      Padding(
-        padding: const EdgeInsets.only(bottom: 14),
-        child: OutlinedButton(
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(double.infinity, 76),
-            foregroundColor: type == option ? Colors.white : Colors.black87,
-            backgroundColor: type == option ? navy : Colors.white,
-            side: BorderSide(
-              color: type == option ? navy : const Color(0xffe4e4e4),
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          onPressed: busy ? null : () => setState(() => type = option),
-          child: Text(option),
-        ),
-      ),
-    const SizedBox(height: 18),
-    ActionButton(
-      'Proceed',
-      busy: busy,
-      onPressed: type.isEmpty ? null : () => finish(),
-    ),
-    const SizedBox(height: 8),
-    TextButton(
-      onPressed: busy ? null : () => finish(skip: true),
-      style: TextButton.styleFrom(foregroundColor: blue),
-      child: const Text(
-        'Skip for now',
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          decoration: TextDecoration.underline,
-          decorationColor: blue,
-        ),
-      ),
-    ),
-  ];
+  Widget buildCurrentStage() {
+    switch (stage) {
+      case OnboardingStage.loading:
+        return const BrandLoading();
+      case OnboardingStage.profile:
+        return ProfileSetup(
+          hasLogo: logo != null,
+          busy: busy,
+          accountType: accountType,
+          onPickLogo: selectLogo,
+          onAccountTypeChanged: (value) => setState(() => accountType = value),
+          onProceed: () => completeProfile(),
+          onSkip: () => completeProfile(skip: true),
+        );
+      case OnboardingStage.signup:
+        return SignupContent(
+          formKey: formKey,
+          email: email,
+          password: password,
+          confirmation: confirmation,
+          busy: busy,
+          onSignUp: signUp,
+          onBack: () => setState(() => stage = OnboardingStage.signup),
+        );
+    }
+  }
 }

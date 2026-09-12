@@ -9,6 +9,8 @@ import 'invoice.dart';
 import 'export.dart';
 import 'invoice_document.dart';
 
+enum InvoiceExportAction { download, share }
+
 class InvoicePreview extends ConsumerStatefulWidget {
   final Invoice invoice;
   const InvoicePreview({super.key, required this.invoice});
@@ -19,7 +21,7 @@ class InvoicePreview extends ConsumerStatefulWidget {
 class _InvoicePreviewState extends ConsumerState<InvoicePreview> {
   bool saving = false;
   bool preparingExport = false;
-  String? exportAction;
+  InvoiceExportAction? exportAction;
   bool get busy => saving || exportAction != null;
   Invoice get invoice => widget.invoice;
   String get filename =>
@@ -31,7 +33,9 @@ class _InvoicePreviewState extends ConsumerState<InvoicePreview> {
         ? null
         : box.localToGlobal(Offset.zero) & box.size;
     setState(() {
-      exportAction = share ? 'share' : 'download';
+      exportAction = share
+          ? InvoiceExportAction.share
+          : InvoiceExportAction.download;
       preparingExport = true;
     });
     try {
@@ -190,14 +194,14 @@ class _InvoicePreviewState extends ConsumerState<InvoicePreview> {
           const SizedBox(height: 40),
           ActionButton(
             'Download Pdf',
-            busy: exportAction == 'download',
+            busy: exportAction == InvoiceExportAction.download,
             onPressed: busy ? null : () => export(),
           ),
           const SizedBox(height: 12),
           ActionButton(
             'Send To Client Email',
             outlined: true,
-            busy: exportAction == 'share' && preparingExport,
+            busy: exportAction == InvoiceExportAction.share && preparingExport,
             onPressed: busy ? null : () => export(share: true),
           ),
         ],

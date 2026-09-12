@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../shared/validation.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/store.dart';
 import '../../shared/ui.dart';
 import 'invoice.dart';
 import 'preview.dart';
+import 'invoice_form_data.dart';
+import 'invoice_item_editor.dart';
+import 'invoice_summary.dart';
+
+enum InvoiceStep { details, bank }
 
 class InvoiceEditor extends ConsumerStatefulWidget {
   final Invoice? invoice;
@@ -17,145 +21,73 @@ class InvoiceEditor extends ConsumerStatefulWidget {
 
 class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
   final form = GlobalKey<FormState>();
-  final number = TextEditingController(),
-      client = TextEditingController(),
-      sender = TextEditingController(),
-      title = TextEditingController(),
-      dateText = TextEditingController(),
-      vat = TextEditingController(text: '0'),
-      shipping = TextEditingController(text: '0'),
-      bankNumber = TextEditingController(),
-      bankName = TextEditingController(),
-      accountName = TextEditingController(),
-      terms = TextEditingController();
-  final List<_ItemFields> items = [];
-  DateTime date = DateTime.now();
-  String currency = 'NGN';
-  int step = 0;
-  bool dirty = false, leaving = false;
-  late final String id;
-  List<TextEditingController> get controllers => [
-    number,
-    client,
-    sender,
-    title,
-    dateText,
-    vat,
-    shipping,
-    bankNumber,
-    bankName,
-    accountName,
-    terms,
-  ];
+  late final InvoiceFormData formData;
+  InvoiceStep step = InvoiceStep.details;
+  bool dirty = false;
+  bool leaving = false;
+
   @override
   void initState() {
     super.initState();
-    final invoice = widget.invoice;
-    id = invoice?.id ?? DateTime.now().microsecondsSinceEpoch.toString();
-    number.text =
-        invoice?.number ??
-        (ref.read(appStoreProvider).invoices.length + 1).toString().padLeft(
-          4,
-          '0',
-        );
-    if (invoice != null) {
-      client.text = invoice.client;
-      sender.text = invoice.sender;
-      title.text = invoice.title;
-      date = invoice.date;
-      currency = invoice.currency;
-      vat.text = '${invoice.vat}';
-      shipping.text = (invoice.shipping / 100).toStringAsFixed(2);
-      bankNumber.text = invoice.bankNumber;
-      bankName.text = invoice.bankName;
-      accountName.text = invoice.accountName;
-      terms.text = invoice.terms;
-      items.addAll(invoice.items.map((e) => _ItemFields(e)));
-    } else {
-      items.add(_ItemFields());
-    }
-    dateText.text = dateLabel(date);
-    for (final c in controllers) {
-      c.addListener(changed);
-    }
-    for (final item in items) {
-      item.listen(changed);
-    }
+    final savedInvoices = ref.read(appStoreProvider).invoices;
+    formData = InvoiceFormData(
+      invoice: widget.invoice,
+      nextInvoiceNumber: savedInvoices.length + 1,
+    );
+    formData.addListeners(markAsChanged);
   }
 
-  void changed() {
+  void markAsChanged() {
     setState(() => dirty = true);
   }
 
   @override
   void dispose() {
-    for (final c in controllers) {
-      c.dispose();
-    }
-    for (final i in items) {
-      i.dispose();
-    }
+    formData.dispose();
     super.dispose();
   }
 
-  double parse(TextEditingController c) {
-    final n = double.tryParse(c.text);
-    return n != null && n.isFinite && n >= 0 && n <= 1000000000 ? n : 0;
+  Future<void> selectDate() async {
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate: formData.date,
+      firstDate: DateTime(1900),
+      lastDate: DateTime(2200),
+    );
+    if (selectedDate == null || !mounted) return;
+    formData.date = selectedDate;
+    formData.dateText.text = dateLabel(selectedDate);
   }
 
-  Invoice draft() => Invoice(
-    id: id,
-    number: number.text.trim(),
-    client: client.text.trim(),
-    sender: sender.text.trim(),
-    title: title.text.trim(),
-    currency: currency,
-    date: date,
-    items: items
-        .map(
-          (i) => InvoiceItem(
-            description: i.description.text.trim(),
-            quantity: parse(i.quantity),
-            unitPrice: (parse(i.price) * 100).round(),
-          ),
-        )
-        .toList(),
-    vat: parse(vat),
-    shipping: (parse(shipping) * 100).round(),
-    bankNumber: bankNumber.text.trim(),
-    bankName: bankName.text.trim(),
-    accountName: accountName.text.trim(),
-    terms: terms.text.trim(),
-  );
-  bool get validDetails =>
-      invoiceNumberError(number.text) == null &&
-      nameError(client.text) == null &&
-      nameError(sender.text) == null &&
-      titleError(title.text) == null &&
-      items.isNotEmpty &&
-      items.every(
-        (i) =>
-            descriptionError(i.description.text) == null &&
-            positiveNumber(i.quantity.text) == null &&
-            nonNegativeNumber(i.price.text) == null,
-      ) &&
-      shippingError(shipping.text) == null &&
-      vatError(vat.text) == null;
-  String? shippingError(String? value) =>
-      value == null || value.trim().isEmpty ? null : nonNegativeNumber(value);
+  void addItem() {
+    final item = InvoiceItemInputs();
+    item.addListeners(markAsChanged);
+    setState(() {
+      formData.items.add(item);
+      dirty = true;
+    });
+  }
 
-  String? vatError(String? value) => value == null || value.trim().isEmpty
-      ? null
-      : nonNegativeNumber(value) ??
-            ((double.tryParse(value) ?? 0) > 100 ? 'VAT must be 0–100%' : null);
-  bool get validBank =>
-      bankNumberError(bankNumber.text) == null &&
-      bankNameError(bankName.text) == null &&
-      nameError(accountName.text) == null &&
-      termsError(terms.text) == null;
+  void removeItem(int index) {
+    final removedItem = formData.items[index];
+    setState(() {
+      formData.items.removeAt(index);
+      dirty = true;
+    });
+    removedItem.dispose();
+  }
+
+  // PopScope must rebuild before this screen is allowed to close.
+  void leaveEditor() {
+    setState(() => leaving = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.pop(context);
+    });
+  }
+
   Future<void> close() async {
-    if (step == 1) {
-      setState(() => step = 0);
+    if (step == InvoiceStep.bank) {
+      setState(() => step = InvoiceStep.details);
       return;
     }
     final discard =
@@ -179,29 +111,25 @@ class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
             ) ==
             true;
     if (discard && mounted) {
-      setState(() => leaving = true);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.pop(context);
-      });
+      leaveEditor();
     }
   }
 
-  Future<void> next() async {
+  Future<void> goToNextStep() async {
     if (!form.currentState!.validate()) return;
-    if (step == 0) {
-      setState(() => step = 1);
+    if (step == InvoiceStep.details) {
+      setState(() => step = InvoiceStep.bank);
       return;
     }
     final saved = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (_) => InvoicePreview(invoice: draft())),
+      MaterialPageRoute(
+        builder: (_) => InvoicePreview(invoice: formData.toInvoice()),
+      ),
     );
-    if (saved == false && mounted) setState(() => step = 0);
+    if (saved == false && mounted) setState(() => step = InvoiceStep.details);
     if (saved == true && mounted) {
-      setState(() => leaving = true);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.pop(context);
-      });
+      leaveEditor();
     }
   }
 
@@ -214,7 +142,9 @@ class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
     child: Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          tooltip: step == 0 ? 'Close invoice' : 'Back to invoice details',
+          tooltip: step == InvoiceStep.details
+              ? 'Close invoice'
+              : 'Back to invoice details',
           onPressed: close,
           icon: Icon(Icons.close),
         ),
@@ -223,61 +153,66 @@ class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
         padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
         children: [
           Text(
-            step == 0 ? 'New Invoice' : 'Bank Details',
+            step == InvoiceStep.details ? 'New Invoice' : 'Bank Details',
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
           ),
-          Steps(current: step),
+          Steps(current: step.index),
           Form(
             key: form,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: step == 0 ? details() : bank(),
+              children: step == InvoiceStep.details
+                  ? buildInvoiceFields()
+                  : buildBankFields(),
             ),
           ),
           const SizedBox(height: 20),
           ActionButton(
-            step == 0 ? 'Next' : 'Preview Invoice',
-            onPressed: (step == 0 ? validDetails : validBank) ? next : null,
+            step == InvoiceStep.details ? 'Next' : 'Preview Invoice',
+            onPressed:
+                (step == InvoiceStep.details
+                    ? formData.hasValidInvoiceDetails
+                    : formData.hasValidBankDetails)
+                ? goToNextStep
+                : null,
           ),
           const SizedBox(height: 8),
         ],
       ),
     ),
   );
-  List<Widget> details() {
-    final invoice = draft();
+  List<Widget> buildInvoiceFields() {
+    final invoice = formData.toInvoice();
     return [
       SizedBox(
         width: 164,
-        child: Field('Invoice Number', number, validator: invoiceNumberError),
+        child: Field(
+          'Invoice Number',
+          formData.number,
+          validator: invoiceNumberError,
+        ),
       ),
       Field(
         'Client’s Name',
-        client,
+        formData.client,
         hint: 'Enter Client’s Name',
         validator: nameError,
       ),
-      Field('Your Name', sender, hint: 'Enter Your Name', validator: nameError),
+      Field(
+        'Your Name',
+        formData.sender,
+        hint: 'Enter Your Name',
+        validator: nameError,
+      ),
       Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             child: Field(
               'Issuance Date',
-              dateText,
+              formData.dateText,
               readOnly: true,
-              onTap: () async {
-                final selected = await showDatePicker(
-                  context: context,
-                  initialDate: date,
-                  firstDate: DateTime(1900),
-                  lastDate: DateTime(2200),
-                );
-                if (selected != null && mounted) {
-                  date = selected;
-                  dateText.text = dateLabel(date);
-                }
-              },
+              onTap: selectDate,
             ),
           ),
           const SizedBox(width: 16),
@@ -288,14 +223,14 @@ class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
                 const Text('Currency'),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  initialValue: currency,
+                  initialValue: formData.currency,
                   items: ['NGN', 'USD', 'GBP', 'EUR']
                       .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                       .toList(),
                   onChanged: (v) {
                     if (v != null) {
                       setState(() {
-                        currency = v;
+                        formData.currency = v;
                         dirty = true;
                       });
                     }
@@ -314,101 +249,20 @@ class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
       const SizedBox(height: 20),
       Field(
         'Invoice Title',
-        title,
+        formData.title,
         hint: 'Enter Invoice Title',
         validator: titleError,
       ),
-      for (var index = 0; index < items.length; index++)
-        Container(
-          key: ObjectKey(items[index]),
-          margin: const EdgeInsets.only(bottom: 16),
-          padding: const EdgeInsets.all(12),
-          color: const Color(0xfff9f9f9),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Field(
-                'Item Description',
-                items[index].description,
-                hint: 'Enter a description',
-                validator: descriptionError,
-              ),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Field(
-                      'Quantity',
-                      items[index].quantity,
-                      hint: 'e.g. 2.00',
-                      keyboard: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      validator: positiveNumber,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Field(
-                      'Price',
-                      items[index].price,
-                      hint: 'e.g. 3000.00',
-                      keyboard: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      validator: nonNegativeNumber,
-                    ),
-                  ),
-                ],
-              ),
-              const Text('Amount'),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: InputDecorator(
-                      decoration: const InputDecoration(),
-                      child: Text(
-                        money(invoice.items[index].total, '').trim(),
-                        style: TextStyle(
-                          color: invoice.items[index].total == 0
-                              ? const Color(0xffb2b2b2)
-                              : const Color(0xff333333),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 24),
-                  IconButton(
-                    tooltip: 'Remove item ${index + 1}',
-                    onPressed: () {
-                      final removed = items[index];
-                      setState(() {
-                        items.removeAt(index);
-                        dirty = true;
-                      });
-                      removed.dispose();
-                    },
-                    icon: SvgPicture.asset(
-                      'assets/icons/delete-item.svg',
-                      width: 36,
-                      height: 36,
-                      excludeFromSemantics: true,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+      for (var index = 0; index < formData.items.length; index++)
+        InvoiceItemEditor(
+          key: ObjectKey(formData.items[index]),
+          fields: formData.items[index],
+          index: index,
+          amount: invoice.items[index].total,
+          onRemove: () => removeItem(index),
         ),
       TextButton(
-        onPressed: () {
-          final item = _ItemFields()..listen(changed);
-          setState(() {
-            items.add(item);
-            dirty = true;
-          });
-        },
+        onPressed: addItem,
         child: const Text(
           'Add New Item',
           style: TextStyle(
@@ -419,86 +273,18 @@ class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
         ),
       ),
       const SizedBox(height: 30),
-      _total('SubTotal', invoice.subtotal),
-      const SizedBox(height: 8),
-      _summaryInput('VAT', vat, width: 64, validator: vatError, percent: true),
-      const SizedBox(height: 8),
-      _summaryInput('Shipping', shipping, width: 104, validator: shippingError),
-      const SizedBox(height: 12),
-      _total('Total', invoice.total),
+      InvoiceSummary(
+        invoice: invoice,
+        vatController: formData.vat,
+        shippingController: formData.shipping,
+      ),
     ];
   }
 
-  Widget _summaryInput(
-    String label,
-    TextEditingController controller, {
-    required double width,
-    required String? Function(String?) validator,
-    bool percent = false,
-  }) => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Expanded(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          child: Text(label),
-        ),
-      ),
-      const SizedBox(width: 12),
-      SizedBox(
-        width: width,
-        child: TextFormField(
-          key: ValueKey('summary-$label'),
-          controller: controller,
-          validator: validator,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          textAlign: TextAlign.right,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
-          decoration: InputDecoration(
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 8,
-              vertical: 8,
-            ),
-            errorMaxLines: 5,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(3)),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(3),
-              borderSide: const BorderSide(color: Color(0xffe4e4e4), width: 2),
-            ),
-          ),
-        ),
-      ),
-      if (percent)
-        const Padding(
-          padding: EdgeInsets.only(left: 4, top: 10),
-          child: Text('%'),
-        ),
-    ],
-  );
-
-  Widget _total(String label, int amount) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Text(label),
-      const SizedBox(width: 8),
-      Flexible(
-        child: Text(
-          money(amount, currency == 'NGN' ? 'N' : currency),
-          textAlign: TextAlign.left,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: amount == 0 ? const Color(0xffb2b2b2) : navy,
-          ),
-        ),
-      ),
-    ],
-  );
-
-  List<Widget> bank() => [
+  List<Widget> buildBankFields() => [
     Field(
       'Bank Number',
-      bankNumber,
+      formData.bankNumber,
       hint: 'Enter your Bank Number',
       validator: bankNumberError,
       inputFormatters: [
@@ -509,45 +295,21 @@ class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
     ),
     Field(
       'Name of Bank',
-      bankName,
+      formData.bankName,
       hint: 'Enter your Bank Name',
       validator: bankNameError,
     ),
     Field(
       'Name of Account',
-      accountName,
+      formData.accountName,
       hint: 'Enter the Name on Account',
       validator: nameError,
     ),
     Field(
       'Terms of Payment',
-      terms,
+      formData.terms,
       hint: 'e.g. Payment will be made in installments',
       validator: termsError,
     ),
   ];
-}
-
-class _ItemFields {
-  final description = TextEditingController(),
-      quantity = TextEditingController(),
-      price = TextEditingController();
-  _ItemFields([InvoiceItem? item]) {
-    if (item != null) {
-      description.text = item.description;
-      quantity.text = '${item.quantity}';
-      price.text = (item.unitPrice / 100).toStringAsFixed(2);
-    }
-  }
-  void listen(VoidCallback callback) {
-    description.addListener(callback);
-    quantity.addListener(callback);
-    price.addListener(callback);
-  }
-
-  void dispose() {
-    description.dispose();
-    quantity.dispose();
-    price.dispose();
-  }
 }
