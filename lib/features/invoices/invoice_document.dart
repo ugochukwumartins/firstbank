@@ -197,20 +197,18 @@ class InvoiceDocument extends StatelessWidget {
   Widget _total(String label, int value, {bool bold = false}) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 4),
     child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Expanded(
-          flex: 2,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontWeight: bold ? FontWeight.w700 : FontWeight.normal,
-            ),
+        Text(
+          label,
+          maxLines: 1,
+          softWrap: false,
+          style: TextStyle(
+            fontWeight: bold ? FontWeight.w700 : FontWeight.normal,
           ),
         ),
-        const SizedBox(width: 16),
-        Flexible(
-          flex: 6,
+        const SizedBox(width: 8),
+        Expanded(
           child: FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerRight,

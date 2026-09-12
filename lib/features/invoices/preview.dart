@@ -17,28 +17,39 @@ class InvoicePreview extends ConsumerStatefulWidget {
 }
 
 class _InvoicePreviewState extends ConsumerState<InvoicePreview> {
-  bool busy = false;
+  bool saving = false;
+  bool preparingExport = false;
+  String? exportAction;
+  bool get busy => saving || exportAction != null;
   Invoice get invoice => widget.invoice;
   String get filename =>
       'invoice-${invoice.number.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_')}.pdf';
   Future<void> export({bool share = false}) async {
+    if (busy) return;
     final box = context.findRenderObject() as RenderBox?;
     final origin = box == null
         ? null
         : box.localToGlobal(Offset.zero) & box.size;
-    setState(() => busy = true);
+    setState(() {
+      exportAction = share ? 'share' : 'download';
+      preparingExport = true;
+    });
     try {
       final bytes = await invoicePdf(invoice, ref.read(appStoreProvider).logo);
+      if (!mounted) return;
       if (share) {
-        await SharePlus.instance.share(
-          ShareParams(
-            files: [XFile.fromData(bytes, mimeType: 'application/pdf')],
-            fileNameOverrides: [filename],
-            subject: 'Invoice #${invoice.number} — ${invoice.title}',
-            text: 'Please find your invoice attached.',
-            sharePositionOrigin: origin,
-          ),
-        );
+        setState(() => preparingExport = false);
+        await SharePlus.instance
+            .share(
+              ShareParams(
+                files: [XFile.fromData(bytes, mimeType: 'application/pdf')],
+                fileNameOverrides: [filename],
+                subject: 'Invoice #${invoice.number} — ${invoice.title}',
+                text: 'Please find your invoice attached.',
+                sharePositionOrigin: origin,
+              ),
+            )
+            .timeout(const Duration(seconds: 30));
       } else {
         final path = await FilePicker.saveFile(
           dialogTitle: 'Download invoice',
@@ -65,7 +76,12 @@ class _InvoicePreviewState extends ConsumerState<InvoicePreview> {
         showError(context, 'Could not export the invoice. Please try again.');
       }
     } finally {
-      if (mounted) setState(() => busy = false);
+      if (mounted) {
+        setState(() {
+          exportAction = null;
+          preparingExport = false;
+        });
+      }
     }
   }
 
@@ -90,11 +106,11 @@ class _InvoicePreviewState extends ConsumerState<InvoicePreview> {
       ),
     );
     if (yes != true || !mounted) return;
-    setState(() => busy = true);
+    setState(() => saving = true);
     try {
       await ref.read(appStoreProvider.notifier).save(invoice);
       if (!mounted) return;
-      setState(() => busy = false);
+      setState(() => saving = false);
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
@@ -118,7 +134,7 @@ class _InvoicePreviewState extends ConsumerState<InvoicePreview> {
         showError(context, 'Could not save your invoice. Please try again.');
       }
     } finally {
-      if (mounted) setState(() => busy = false);
+      if (mounted) setState(() => saving = false);
     }
   }
 
@@ -172,14 +188,18 @@ class _InvoicePreviewState extends ConsumerState<InvoicePreview> {
             logo: ref.watch(appStoreProvider.select((state) => state.logo)),
           ),
           const SizedBox(height: 40),
-          ActionButton('Download Pdf', busy: busy, onPressed: () => export()),
+          ActionButton(
+            'Download Pdf',
+            busy: exportAction == 'download',
+            onPressed: busy ? null : () => export(),
+          ),
           const SizedBox(height: 12),
           ActionButton(
             'Send To Client Email',
             outlined: true,
+            busy: exportAction == 'share' && preparingExport,
             onPressed: busy ? null : () => export(share: true),
           ),
-         
         ],
       ),
     ),

@@ -381,16 +381,14 @@ class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
                   const SizedBox(width: 24),
                   IconButton(
                     tooltip: 'Remove item ${index + 1}',
-                    onPressed: items.length == 1
-                        ? null
-                        : () {
-                            final removed = items[index];
-                            setState(() {
-                              items.removeAt(index);
-                              dirty = true;
-                            });
-                            removed.dispose();
-                          },
+                    onPressed: () {
+                      final removed = items[index];
+                      setState(() {
+                        items.removeAt(index);
+                        dirty = true;
+                      });
+                      removed.dispose();
+                    },
                     icon: SvgPicture.asset(
                       'assets/icons/delete-item.svg',
                       width: 36,
@@ -480,13 +478,14 @@ class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
   );
 
   Widget _total(String label, int amount) => Row(
+    mainAxisSize: MainAxisSize.min,
     children: [
       Text(label),
       const SizedBox(width: 8),
-      Expanded(
+      Flexible(
         child: Text(
           money(amount, currency == 'NGN' ? 'N' : currency),
-          textAlign: TextAlign.right,
+          textAlign: TextAlign.left,
           style: TextStyle(
             fontWeight: FontWeight.w600,
             color: amount == 0 ? const Color(0xffb2b2b2) : navy,
