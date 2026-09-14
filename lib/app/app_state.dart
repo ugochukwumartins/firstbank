@@ -1,3 +1,5 @@
+// Describes the shared profile and invoice data as a read-only snapshot.
+
 import 'dart:typed_data';
 import '../features/invoices/invoice.dart';
 
@@ -20,6 +22,7 @@ class AppState {
            ? null
            : Uint8List.fromList(logo).asUnmodifiableView();
 
+  // Create an updated snapshot while retaining values that were not supplied.
   AppState copyWith({
     List<Invoice>? invoices,
     bool? onboarded,

@@ -1,3 +1,5 @@
+// Lays out the on-screen invoice: parties, items, totals and payment details.
+
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../shared/ui.dart';
@@ -156,6 +158,7 @@ class InvoiceDocument extends StatelessWidget {
     ),
   );
 
+  // Place related information side by side within the available width.
   Widget _columns(
     Widget left,
     Widget right, {
@@ -170,6 +173,7 @@ class InvoiceDocument extends StatelessWidget {
     ],
   );
 
+  // Display a muted label above its value.
   Widget _info(String label, String value) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
@@ -182,6 +186,7 @@ class InvoiceDocument extends StatelessWidget {
     ],
   );
 
+  // Apply consistent padding and text styling to an invoice-table cell.
   Widget _cell(String text, {bool header = false}) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
     child: Text(
@@ -194,6 +199,7 @@ class InvoiceDocument extends StatelessWidget {
     ),
   );
 
+  // Keep each total label and its amount together on one row.
   Widget _total(String label, int value, {bool bold = false}) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 4),
     child: Row(
@@ -228,6 +234,7 @@ class InvoiceDocument extends StatelessWidget {
     ),
   );
 
+  // Emphasize the label while keeping the bank value on the same text line.
   Widget _bankLine(String label, String value) => Text.rich(
     TextSpan(
       style: const TextStyle(color: navy),

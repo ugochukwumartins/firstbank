@@ -1,3 +1,5 @@
+// Displays one editable item and sends deletion requests to its parent.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../shared/ui.dart';

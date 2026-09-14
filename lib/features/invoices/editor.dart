@@ -1,3 +1,5 @@
+// Coordinates invoice editing, bank details, validation and preview navigation.
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../shared/validation.dart';
@@ -27,6 +29,7 @@ class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
   bool leaving = false;
 
   @override
+  // Create a draft once and listen for edits so totals and buttons update.
   void initState() {
     super.initState();
     final savedInvoices = ref.read(appStoreProvider).invoices;
@@ -37,16 +40,19 @@ class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
     formData.addListeners(markAsChanged);
   }
 
+  // Remember unsaved edits and rebuild the calculated values.
   void markAsChanged() {
     setState(() => dirty = true);
   }
 
+  // Release owned resources when this screen/control is removed.
   @override
   void dispose() {
     formData.dispose();
     super.dispose();
   }
 
+  // Keep the date value and its displayed text in sync after date selection.
   Future<void> selectDate() async {
     final selectedDate = await showDatePicker(
       context: context,
@@ -59,6 +65,7 @@ class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
     formData.dateText.text = dateLabel(selectedDate);
   }
 
+  // Add an empty line and listen for changes to its fields.
   void addItem() {
     final item = InvoiceItemInputs();
     item.addListeners(markAsChanged);
@@ -68,6 +75,7 @@ class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
     });
   }
 
+  // Remove the chosen line and release its text controllers.
   void removeItem(int index) {
     final removedItem = formData.items[index];
     setState(() {
@@ -85,6 +93,7 @@ class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
     });
   }
 
+  // Go back a step, or ask before discarding unsaved invoice details.
   Future<void> close() async {
     if (step == InvoiceStep.bank) {
       setState(() => step = InvoiceStep.details);
@@ -115,6 +124,7 @@ class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
     }
   }
 
+  // Validate the form before advancing; preserve the draft when editing again.
   Future<void> goToNextStep() async {
     if (!form.currentState!.validate()) return;
     if (step == InvoiceStep.details) {
@@ -181,6 +191,7 @@ class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
       ),
     ),
   );
+  // Build customer fields, editable items and the live totals section.
   List<Widget> buildInvoiceFields() {
     final invoice = formData.toInvoice();
     return [
@@ -281,6 +292,7 @@ class _InvoiceEditorState extends ConsumerState<InvoiceEditor> {
     ];
   }
 
+  // Build payment fields; keep bank numbers as text to retain leading zeros.
   List<Widget> buildBankFields() => [
     Field(
       'Bank Number',

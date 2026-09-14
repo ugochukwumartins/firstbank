@@ -1,3 +1,6 @@
+// Defines invoice data, calculates totals and converts values for storage/display.
+
+// One billed service or product. Unit price is stored in minor units (100 = 1.00).
 class InvoiceItem {
   final String description;
   final double quantity;
@@ -8,11 +11,13 @@ class InvoiceItem {
     required this.unitPrice,
   });
   int get total => (quantity * unitPrice).round();
+  // Convert this object to named values that can be stored as JSON.
   Map<String, dynamic> toJson() => {
     'description': description,
     'quantity': quantity,
     'unitPrice': unitPrice,
   };
+  // Recreate an item from its saved values.
   factory InvoiceItem.fromJson(Map<String, dynamic> j) => InvoiceItem(
     description: j['description'] as String,
     quantity: (j['quantity'] as num).toDouble(),
@@ -20,6 +25,7 @@ class InvoiceItem {
   );
 }
 
+// A complete invoice shared by the editor, preview, local storage and PDF.
 class Invoice {
   final String id,
       number,
@@ -51,9 +57,13 @@ class Invoice {
     required this.accountName,
     required this.terms,
   }) : items = List.unmodifiable(items);
+  // Add the rounded totals of all invoice lines.
   int get subtotal => items.fold(0, (sum, item) => sum + item.total);
+  // Apply the VAT percentage to the subtotal and round to a minor unit.
   int get tax => (subtotal * vat / 100).round();
+  // The final amount includes the subtotal, tax and shipping.
   int get total => subtotal + tax + shipping;
+  // Convert this object to named values that can be stored as JSON.
   Map<String, dynamic> toJson() => {
     'id': id,
     'number': number,
@@ -70,6 +80,7 @@ class Invoice {
     'accountName': accountName,
     'terms': terms,
   };
+  // Recreate a saved invoice, including its date and item objects.
   factory Invoice.fromJson(Map<String, dynamic> j) => Invoice(
     id: j['id'] as String,
     number: j['number'] as String,
@@ -90,6 +101,7 @@ class Invoice {
   );
 }
 
+// Convert minor units to a readable amount with grouping and two decimal places.
 String money(int minor, [String currency = 'NGN']) {
   final parts = (minor / 100).toStringAsFixed(2).split('.');
   final whole = parts[0].replaceAllMapped(
@@ -99,10 +111,13 @@ String money(int minor, [String currency = 'NGN']) {
   return '$currency $whole.${parts[1]}';
 }
 
+// Format the date as day/month/year with two-digit days and months.
 String dateLabel(DateTime date) =>
     '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+// Reject missing or whitespace-only text.
 String? requiredText(String? value) =>
     value == null || value.trim().isEmpty ? 'This field is required' : null;
+// Allow ordinary decimals greater than zero, capped at one billion.
 String? positiveNumber(String? value) {
   if (!RegExp(r'^\d+(?:\.\d{1,2})?$').hasMatch(value?.trim() ?? '')) {
     return 'Enter a number with up to 2 decimal places';
@@ -113,6 +128,7 @@ String? positiveNumber(String? value) {
       : null;
 }
 
+// Use the same decimal format for prices and charges, allowing zero.
 String? nonNegativeNumber(String? value) {
   if (!RegExp(r'^\d+(?:\.\d{1,2})?$').hasMatch(value?.trim() ?? '')) {
     return 'Enter a number with up to 2 decimal places';

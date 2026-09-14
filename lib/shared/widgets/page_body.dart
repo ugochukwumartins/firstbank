@@ -1,3 +1,5 @@
+// Keeps page content inside safe screen areas and makes long content scroll.
+
 import 'package:flutter/material.dart';
 
 class PageBody extends StatelessWidget {

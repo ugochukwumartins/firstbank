@@ -1,3 +1,5 @@
+// Shows the invoice and handles PDF download, sharing and save confirmation.
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -26,6 +28,7 @@ class _InvoicePreviewState extends ConsumerState<InvoicePreview> {
   Invoice get invoice => widget.invoice;
   String get filename =>
       'invoice-${invoice.number.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_')}.pdf';
+  // Build the PDF, hand it to the device, and always clear the loading flags.
   Future<void> export({bool share = false}) async {
     if (busy) return;
     final box = context.findRenderObject() as RenderBox?;
@@ -89,6 +92,7 @@ class _InvoicePreviewState extends ConsumerState<InvoicePreview> {
     }
   }
 
+  // Confirm and persist the invoice. The current layout has no button calling this.
   Future<void> save() async {
     final yes = await showDialog<bool>(
       context: context,
@@ -118,18 +122,11 @@ class _InvoicePreviewState extends ConsumerState<InvoicePreview> {
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          icon: const Icon(Icons.check_circle, color: Colors.green),
-          title: const Text('Success'),
-          content: const Text(
-            'Your invoice was saved successfully. Go to Dashboard to view.',
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Go to Dashboard'),
-            ),
-          ],
+        builder: (context) => const SuccessDialog(
+          title: 'Success',
+          message:
+              'Your Invoice was saved successfully. Go to Dashboard to view',
+          buttonLabel: 'Go to Dashboard',
         ),
       );
       if (mounted) Navigator.pop(context, true);

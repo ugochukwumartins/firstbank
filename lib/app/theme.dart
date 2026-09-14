@@ -1,3 +1,5 @@
+// Defines the shared font, colors, field borders and button appearance.
+
 import 'package:flutter/material.dart';
 import '../shared/colors.dart';
 

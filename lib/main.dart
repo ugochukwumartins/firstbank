@@ -1,3 +1,5 @@
+// Starts Flutter, loads device storage, and offers a retry if storage cannot open.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -5,6 +7,7 @@ import 'app/app.dart';
 import 'app/store.dart';
 import 'shared/ui.dart';
 
+// Start with the storage-loading screen before showing the app.
 void main() {
   runApp(const Bootstrap());
 }

@@ -1,3 +1,5 @@
+// Draws the LanceBox brand and the full-screen loading indicator.
+
 import 'package:flutter/material.dart';
 import '../colors.dart';
 

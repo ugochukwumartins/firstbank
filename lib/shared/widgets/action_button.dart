@@ -1,3 +1,5 @@
+// Uses one button layout for normal, outlined, disabled and loading actions.
+
 import 'package:flutter/material.dart';
 
 class ActionButton extends StatelessWidget {

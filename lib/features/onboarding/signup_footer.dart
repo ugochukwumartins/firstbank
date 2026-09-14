@@ -1,3 +1,5 @@
+// Builds the underlined Terms and Policy links and their demo messages.
+
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import '../../shared/ui.dart';
@@ -17,6 +19,7 @@ class _SignupFooterState extends State<SignupFooter> {
       'Policy',
       'This demo stores profile and invoices on this device. Passwords are not saved. No remote account is created.',
     );
+  // Release owned resources when this screen/control is removed.
   @override
   void dispose() {
     _termsLink.dispose();

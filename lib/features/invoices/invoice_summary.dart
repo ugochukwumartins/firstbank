@@ -1,3 +1,5 @@
+// Displays calculated totals alongside the editable VAT and shipping inputs.
+
 import 'package:flutter/material.dart';
 import '../../shared/ui.dart';
 import '../../shared/validation.dart';
@@ -40,6 +42,7 @@ class InvoiceSummary extends StatelessWidget {
     ],
   );
 
+  // Align a small editable charge field with its label and optional suffix.
   Widget _summaryInput(
     String label,
     TextEditingController controller, {
@@ -88,6 +91,7 @@ class InvoiceSummary extends StatelessWidget {
     ],
   );
 
+  // Show a calculated amount next to its label; zero values use muted text.
   Widget _total(String label, int amount) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [

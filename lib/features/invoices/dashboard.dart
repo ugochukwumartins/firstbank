@@ -1,3 +1,5 @@
+// Shows invoice history, the create action and the navigation drawer.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/store.dart';
@@ -7,6 +9,7 @@ import 'editor.dart';
 
 class Dashboard extends ConsumerWidget {
   const Dashboard({super.key});
+  // Open a blank editor, or populate it with the selected saved invoice.
   void open(BuildContext context, [Invoice? invoice]) => Navigator.push(
     context,
     MaterialPageRoute<void>(builder: (_) => InvoiceEditor(invoice: invoice)),

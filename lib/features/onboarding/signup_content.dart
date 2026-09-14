@@ -1,3 +1,5 @@
+// Lays out sign-up fields and social buttons; the parent handles actions.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../shared/ui.dart';

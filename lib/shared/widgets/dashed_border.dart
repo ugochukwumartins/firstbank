@@ -1,3 +1,5 @@
+// Paints short strokes and gaps to create the upload area’s dashed outline.
+
 import 'package:flutter/material.dart';
 
 class DashedRectangleBorder extends OutlinedBorder {

@@ -1,3 +1,5 @@
+// Loads and saves shared app data. Riverpod tells listening screens when it changes.
+
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,6 +20,7 @@ class AppStore extends Notifier<AppState> {
   SharedPreferences get preferences => ref.read(preferencesProvider);
 
   @override
+  // Restore the last saved profile and invoices when Riverpod creates the store.
   AppState build() {
     final preferences = ref.watch(preferencesProvider);
     bool onboarded = false;
@@ -52,6 +55,7 @@ class AppStore extends Notifier<AppState> {
     );
   }
 
+  // Persist the chosen profile before allowing the app to show the dashboard.
   Future<void> completeProfile(String type, Uint8List? bytes) async {
     if (!await preferences.setString('accountType', type)) {
       throw StateError('Save failed');
@@ -75,6 +79,7 @@ class AppStore extends Notifier<AppState> {
     );
   }
 
+  // Insert a new invoice or replace the invoice with the same stable ID.
   Future<void> save(Invoice invoice) async {
     if (state.loadError != null) {
       throw StateError('Existing data could not be read');
@@ -98,6 +103,7 @@ class AppStore extends Notifier<AppState> {
     state = state.copyWith(invoices: updatedInvoices);
   }
 
+  // Return to onboarding without deleting this device’s invoice history.
   Future<void> logout() async {
     if (!await preferences.setBool('onboarded', false)) {
       throw StateError('Save failed');

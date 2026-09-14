@@ -1,8 +1,11 @@
+// Builds PDF bytes from invoice data; the preview handles saving or sharing them.
+
 import 'package:pdf/pdf.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'invoice.dart';
 
+// Generate an A4 document using bundled fonts and the invoice’s calculated totals.
 Future<Uint8List> invoicePdf(Invoice invoice, Uint8List? logo) async {
   final regular = pw.Font.ttf(
     await rootBundle.load('assets/fonts/Pretendard-Regular.ttf'),
@@ -14,6 +17,7 @@ Future<Uint8List> invoicePdf(Invoice invoice, Uint8List? logo) async {
     theme: pw.ThemeData.withFont(base: regular, bold: bold),
   );
   document.addPage(
+    // Allow long invoices to continue onto additional PDF pages.
     pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
       margin: const pw.EdgeInsets.all(36),
@@ -81,6 +85,7 @@ Future<Uint8List> invoicePdf(Invoice invoice, Uint8List? logo) async {
             child: pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.end,
               children: [
+                // Each pair contains a label ($1) and its calculated amount ($2).
                 pw.Text('${row.$1}:  '),
                 pw.Text(money(row.$2, invoice.currency)),
               ],

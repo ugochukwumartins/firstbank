@@ -1,3 +1,5 @@
+// Displays a labeled input, validation errors and an optional completion tick.
+
 import 'package:flutter/material.dart';
 import '../colors.dart';
 import 'package:flutter/services.dart';
@@ -33,6 +35,7 @@ class Field extends StatefulWidget {
 class _FieldState extends State<Field> {
   final FocusNode _focusNode = FocusNode();
 
+  // Release owned resources when this screen/control is removed.
   @override
   void dispose() {
     _focusNode.dispose();
@@ -47,6 +50,7 @@ class _FieldState extends State<Field> {
       children: [
         Text(widget.label),
         const SizedBox(height: 8),
+        // Recheck when text, focus or a related password field changes.
         ListenableBuilder(
           listenable: Listenable.merge([
             _focusNode,
@@ -67,6 +71,7 @@ class _FieldState extends State<Field> {
             decoration: InputDecoration(
               hintText: widget.hint,
               errorMaxLines: 3,
+              // Show a tick only after leaving a nonempty, valid field.
               suffixIcon:
                   widget.showCompletion &&
                       !_focusNode.hasFocus &&

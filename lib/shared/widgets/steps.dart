@@ -1,3 +1,5 @@
+// Displays progress through the invoice or profile steps.
+
 import 'package:flutter/material.dart';
 
 class Steps extends StatelessWidget {

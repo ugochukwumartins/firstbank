@@ -1,3 +1,5 @@
+// Owns draft text fields and converts valid-looking input into invoice data.
+
 import 'package:flutter/material.dart';
 import '../../shared/validation.dart';
 import 'invoice.dart';
@@ -57,6 +59,7 @@ class InvoiceFormData {
     dateText.text = dateLabel(date);
   }
 
+  // Notify the editor whenever one of these text values changes.
   void addListeners(VoidCallback onChanged) {
     for (final controller in controllers) {
       controller.addListener(onChanged);
@@ -75,6 +78,7 @@ class InvoiceFormData {
     }
   }
 
+  // Use zero for incomplete or invalid numeric input while the user is typing.
   double parse(TextEditingController controller) {
     final value = double.tryParse(controller.text);
     if (value == null || !value.isFinite || value < 0 || value > 1000000000) {
@@ -83,6 +87,7 @@ class InvoiceFormData {
     return value;
   }
 
+  // Trim text and convert displayed money to minor units for calculations.
   Invoice toInvoice() => Invoice(
     id: id,
     number: number.text.trim(),
@@ -107,6 +112,7 @@ class InvoiceFormData {
     accountName: accountName.text.trim(),
     terms: terms.text.trim(),
   );
+  // Enable Next only when every required invoice value passes the same field rules.
   bool get hasValidInvoiceDetails =>
       invoiceNumberError(number.text) == null &&
       nameError(client.text) == null &&
@@ -121,6 +127,7 @@ class InvoiceFormData {
       ) &&
       shippingError(shipping.text) == null &&
       vatError(vat.text) == null;
+  // Enable Preview only when the payment details pass validation.
   bool get hasValidBankDetails =>
       bankNumberError(bankNumber.text) == null &&
       bankNameError(bankName.text) == null &&
@@ -140,6 +147,7 @@ class InvoiceItemInputs {
       price.text = (item.unitPrice / 100).toStringAsFixed(2);
     }
   }
+  // Notify the editor whenever one of these text values changes.
   void addListeners(VoidCallback callback) {
     description.addListener(callback);
     quantity.addListener(callback);

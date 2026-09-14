@@ -1,3 +1,5 @@
+// Exports shared controls so screens can import them from one place.
+
 // Shared UI components. Open the exported file to edit a specific widget.
 export 'colors.dart';
 export 'dialogs.dart';

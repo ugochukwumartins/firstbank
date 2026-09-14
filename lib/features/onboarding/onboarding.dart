@@ -1,3 +1,5 @@
+// Coordinates sign-up, the loading screen and optional profile setup.
+
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,6 +27,7 @@ class _OnboardingState extends ConsumerState<Onboarding> {
   String accountType = '';
   Uint8List? logo;
 
+  // Release owned resources when this screen/control is removed.
   @override
   void dispose() {
     email.dispose();
@@ -33,6 +36,7 @@ class _OnboardingState extends ConsumerState<Onboarding> {
     super.dispose();
   }
 
+  // Validate inputs, show the requested loading stages, then open profile setup.
   Future<void> signUp() async {
     if (busy || !formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
@@ -51,6 +55,7 @@ class _OnboardingState extends ConsumerState<Onboarding> {
     });
   }
 
+  // Ask for an image and report invalid files without leaving the screen busy.
   Future<void> selectLogo() async {
     setState(() => busy = true);
     try {
@@ -72,6 +77,7 @@ class _OnboardingState extends ConsumerState<Onboarding> {
     }
   }
 
+  // Save the profile through Riverpod; skipping saves no logo or account type.
   Future<void> completeProfile({bool skip = false}) async {
     setState(() => busy = true);
     try {
@@ -90,6 +96,7 @@ class _OnboardingState extends ConsumerState<Onboarding> {
   @override
   Widget build(BuildContext context) => Scaffold(body: buildCurrentStage());
 
+  // Choose the visible screen from the current onboarding step.
   Widget buildCurrentStage() {
     switch (stage) {
       case OnboardingStage.loading:
