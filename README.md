@@ -1,5 +1,7 @@
 # LanceBox
 
+Read the [brief project documentation](docs/PROJECT_OVERVIEW.md) for a one-page overview.
+
 Flutter implementation of the supplied LanceBox onboarding and invoicing screenshots for the Senior Analyst mobile-development case study.
 
 ## Features
